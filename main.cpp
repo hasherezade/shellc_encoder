@@ -26,7 +26,15 @@ unsigned char enc_stub32[] = {
     0x83, 0xE8, 0xFC, // sub eax,FFFFFFFC
     0xE2, 0xF8, // loop decode
 };
-//EB 03 58 FF E0 31 C9 81 E9 78 56 34 12 E8 F0 FF FF FF BB 78 56 34 12 31 58 0D 83 E8 FC E2 F8
+
+typedef struct _stub_data
+{
+    BYTE* enc_stub;
+    size_t stub_size;
+    size_t offset_payload_size;
+    size_t offset_xor_key;
+} stub_data;
+
 
 template <class KEY_TYPE>
 void xor_data(void* data, size_t data_size, KEY_TYPE key)
@@ -104,89 +112,65 @@ bool try_xor_data(void* data, size_t data_len, BYTE* payload, size_t payload_siz
     return false;
 }
 
-bool generate_key(void* key_ptr, size_t key_len)
+template <class FIELD_T>
+BYTE* encode_shellc(stub_data &stub, BYTE* payload, size_t payload_size, size_t& encoded_size)
 {
-    srand(time(NULL));
-    int val = rand();
-    return false;
+    uint32_t* shellc_size = (uint32_t*)((ULONG_PTR)stub.enc_stub + stub.offset_payload_size);
+    size_t rounded_len = (payload_size / sizeof(FIELD_T));
+    if ((payload_size % sizeof(FIELD_T)) > 1) rounded_len++;
+
+    *shellc_size = ~(rounded_len);
+    std::cout << "Shellc Size: 0x" << std::hex << ~(*shellc_size) << " = " << std::dec << ~(*shellc_size) << "\n";
+
+    size_t data_len = rounded_len * sizeof(FIELD_T);
+    void* data = VirtualAlloc(0, data_len + 1, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!data) {
+        return nullptr;
+    }
+
+    FIELD_T* xor_key = (FIELD_T*)((ULONG_PTR)stub.enc_stub + stub.offset_xor_key);
+    FIELD_T enc_key = ~(1);
+    srand(time(nullptr));
+    do {
+        enc_key *= rand();
+        enc_key += rand();
+        *xor_key = enc_key;
+#ifdef _DEBUG
+        std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
+#endif
+    } while (!try_xor_data(data, data_len, payload, payload_size, enc_key));
+
+    std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
+
+    const size_t exec_size = data_len + stub.stub_size;
+    BYTE* exec = (BYTE*)VirtualAlloc(0, exec_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    encoded_size = exec_size;
+    RtlMoveMemory(exec, stub.enc_stub, stub.stub_size);
+    RtlMoveMemory((void*)((ULONG_PTR)exec + stub.stub_size), data, data_len);
+    VirtualFree(data, 0, MEM_RELEASE);
+    return exec;
 }
 
 BYTE* encode_shellc64(BYTE *payload, size_t payload_size, size_t &encoded_size)
 {
-    uint32_t* shellc_size = (uint32_t*)((ULONG_PTR)enc_stub64 + 6);
-    size_t rounded_len = (payload_size / sizeof(uint64_t));
-    if ((payload_size % sizeof(uint64_t)) > 1) rounded_len++;
+    stub_data stub = { 0 };
+    stub.enc_stub = enc_stub64;
+    stub.stub_size = sizeof(enc_stub64);
+    stub.offset_payload_size = 6;
+    stub.offset_xor_key = 19;
 
-    *shellc_size = ~(rounded_len);
-    std::cout << "Shellc Size: 0x" << std::hex << ~(*shellc_size) << " = " << std::dec << ~(*shellc_size) << "\n";
-
-    size_t data_len = rounded_len * sizeof(uint64_t);
-    void* data = VirtualAlloc(0, data_len + 1, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!data) {
-        return nullptr;
-    }
-
-    uint64_t* xor_key = (uint64_t*)((ULONG_PTR)enc_stub64 + 19);
-    uint64_t enc_key = ~(1);
-    srand(time(nullptr));
-    do {
-        enc_key *= rand();
-        enc_key += rand();
-        *xor_key = enc_key;
-#ifdef _DEBUG
-        std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
-#endif
-    } while (!try_xor_data(data, data_len, payload, payload_size, enc_key));
-
-    std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
-
-    const size_t stub_size = sizeof(enc_stub64);
-    const size_t exec_size = data_len + stub_size;
-    BYTE* exec = (BYTE*)VirtualAlloc(0, exec_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    encoded_size = exec_size;
-    RtlMoveMemory(exec, enc_stub64, stub_size);
-    RtlMoveMemory((void*)((ULONG_PTR)exec + stub_size), data, data_len);
-    VirtualFree(data, 0, MEM_RELEASE);
-    return exec;
+    return encode_shellc<uint64_t>(stub, payload, payload_size, encoded_size);
 }
 
 BYTE* encode_shellc32(BYTE* payload, size_t payload_size, size_t& encoded_size)
 {
-    uint32_t* shellc_size = (uint32_t*)((ULONG_PTR)enc_stub32 + 9);
-    size_t rounded_len = (payload_size / sizeof(uint32_t));
-    if ((payload_size % sizeof(uint32_t)) > 1) rounded_len++;
+    stub_data stub = { 0 };
+    stub.enc_stub = enc_stub32;
+    stub.stub_size = sizeof(enc_stub32);
+    stub.offset_payload_size = 9;
+    stub.offset_xor_key = 19;
 
-    *shellc_size = ~(rounded_len);
-    std::cout << "Shellc Size: 0x" << std::hex << ~(*shellc_size) << " = " << std::dec << ~(*shellc_size) << "\n";
-
-    size_t data_len = rounded_len * sizeof(uint64_t);
-    void* data = VirtualAlloc(0, data_len + 1, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!data) {
-        return nullptr;
-    }
-
-    uint32_t* xor_key = (uint32_t*)((ULONG_PTR)enc_stub32 + 19);
-    uint32_t enc_key = ~(1);
-    srand(time(nullptr));
-    do {
-        enc_key *= rand();
-        enc_key += rand();
-        *xor_key = enc_key;
-#ifdef _DEBUG
-        std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
-#endif
-    } while (!try_xor_data(data, data_len, payload, payload_size, enc_key));
-
-    std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
-
-    const size_t stub_size = sizeof(enc_stub32);
-    const size_t exec_size = data_len + stub_size;
-    BYTE* exec = (BYTE*)VirtualAlloc(0, exec_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    encoded_size = exec_size;
-    RtlMoveMemory(exec, enc_stub32, stub_size);
-    RtlMoveMemory((void*)((ULONG_PTR)exec + stub_size), data, data_len);
-    VirtualFree(data, 0, MEM_RELEASE);
-    return exec;
+    return encode_shellc<uint32_t>(stub, payload, payload_size, encoded_size);
 }
 
 int main(int argc, char *argv[])
