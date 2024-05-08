@@ -67,7 +67,6 @@ bool test_shellc(void* exec, size_t exec_size)
     return true;
 }
 
-#define USE_WCHAR
 bool try_xor_data(void* data, size_t data_len, BYTE* payload, size_t payload_size, uint64_t enc_key)
 {
     ::memcpy(data, payload, payload_size);
@@ -78,10 +77,14 @@ bool try_xor_data(void* data, size_t data_len, BYTE* payload, size_t payload_siz
     size_t data_strlen = strlen((char*)data);
 #endif
     if (data_strlen >= payload_size) {
+#ifdef _DEBUG
         std::cout << "XOR encoding successful " << std::dec << data_strlen << " vs original len: " << payload_size << std::endl;
+#endif
         return true;
     }
+#ifdef _DEBUG
     std::cout << "XOR encoding failed: " << std::dec << data_strlen << " vs original len: " << payload_size << std::endl;
+#endif
     return false;
 }
 
@@ -114,8 +117,12 @@ BYTE* encode_shellc64(BYTE *payload, size_t payload_size, size_t &encoded_size)
         enc_key *= rand();
         enc_key += rand();
         *xor_key = enc_key;
+#ifdef _DEBUG
         std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
+#endif
     } while (!try_xor_data(data, data_len, payload, payload_size, enc_key));
+
+    std::cout << "xor_key: " << std::hex << (*xor_key) << "\n";
 
     const size_t stub_size = sizeof(enc_stub64);
     const size_t exec_size = data_len + stub_size;
