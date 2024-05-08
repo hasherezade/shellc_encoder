@@ -153,8 +153,8 @@ BYTE* encode_shellc64(BYTE *payload, size_t payload_size, size_t &encoded_size)
 BYTE* encode_shellc32(BYTE* payload, size_t payload_size, size_t& encoded_size)
 {
     uint32_t* shellc_size = (uint32_t*)((ULONG_PTR)enc_stub32 + 9);
-    size_t rounded_len = (payload_size / sizeof(uint64_t));
-    if ((payload_size % sizeof(uint64_t)) > 1) rounded_len++;
+    size_t rounded_len = (payload_size / sizeof(uint32_t));
+    if ((payload_size % sizeof(uint32_t)) > 1) rounded_len++;
 
     *shellc_size = ~(rounded_len);
     std::cout << "Shellc Size: 0x" << std::hex << ~(*shellc_size) << " = " << std::dec << ~(*shellc_size) << "\n";
