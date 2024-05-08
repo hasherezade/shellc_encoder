@@ -29,7 +29,7 @@ unsigned char enc_stub32[] = {
 
 typedef struct _stub_data
 {
-    BYTE* enc_stub;
+    BYTE* stub_data;
     size_t stub_size;
     size_t offset_payload_size;
     size_t offset_xor_key;
@@ -115,7 +115,15 @@ bool try_xor_data(void* data, size_t data_len, BYTE* payload, size_t payload_siz
 template <class FIELD_T>
 BYTE* encode_shellc(stub_data &stub, BYTE* payload, size_t payload_size, size_t& encoded_size)
 {
-    uint32_t* shellc_size = (uint32_t*)((ULONG_PTR)stub.enc_stub + stub.offset_payload_size);
+    if (!payload || !payload_size) {
+        std::cerr << "No payload supplied!\n";
+        return nullptr;
+    }
+    if (!stub.stub_data || !stub.stub_size) {
+        std::cerr << "No stub supplied!\n";
+        return nullptr;
+    }
+    uint32_t* shellc_size = (uint32_t*)((ULONG_PTR)stub.stub_data + stub.offset_payload_size);
     size_t rounded_len = (payload_size / sizeof(FIELD_T));
     if ((payload_size % sizeof(FIELD_T)) > 1) rounded_len++;
 
@@ -128,7 +136,7 @@ BYTE* encode_shellc(stub_data &stub, BYTE* payload, size_t payload_size, size_t&
         return nullptr;
     }
 
-    FIELD_T* xor_key = (FIELD_T*)((ULONG_PTR)stub.enc_stub + stub.offset_xor_key);
+    FIELD_T* xor_key = (FIELD_T*)((ULONG_PTR)stub.stub_data + stub.offset_xor_key);
     FIELD_T enc_key = ~(1);
     srand(time(nullptr));
     do {
@@ -145,7 +153,7 @@ BYTE* encode_shellc(stub_data &stub, BYTE* payload, size_t payload_size, size_t&
     const size_t exec_size = data_len + stub.stub_size;
     BYTE* exec = (BYTE*)VirtualAlloc(0, exec_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     encoded_size = exec_size;
-    RtlMoveMemory(exec, stub.enc_stub, stub.stub_size);
+    RtlMoveMemory(exec, stub.stub_data, stub.stub_size);
     RtlMoveMemory((void*)((ULONG_PTR)exec + stub.stub_size), data, data_len);
     VirtualFree(data, 0, MEM_RELEASE);
     return exec;
@@ -154,7 +162,7 @@ BYTE* encode_shellc(stub_data &stub, BYTE* payload, size_t payload_size, size_t&
 BYTE* encode_shellc64(BYTE *payload, size_t payload_size, size_t &encoded_size)
 {
     stub_data stub = { 0 };
-    stub.enc_stub = enc_stub64;
+    stub.stub_data = enc_stub64;
     stub.stub_size = sizeof(enc_stub64);
     stub.offset_payload_size = 6;
     stub.offset_xor_key = 19;
@@ -165,7 +173,7 @@ BYTE* encode_shellc64(BYTE *payload, size_t payload_size, size_t &encoded_size)
 BYTE* encode_shellc32(BYTE* payload, size_t payload_size, size_t& encoded_size)
 {
     stub_data stub = { 0 };
-    stub.enc_stub = enc_stub32;
+    stub.stub_data = enc_stub32;
     stub.stub_size = sizeof(enc_stub32);
     stub.offset_payload_size = 9;
     stub.offset_xor_key = 19;
