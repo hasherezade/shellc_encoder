@@ -1,0 +1,39 @@
+os:
+  - Visual Studio 2022
+  
+platform:
+  - x64
+  
+branches:
+  only:
+    - master
+
+install:
+  - git submodule update --init --recursive
+  - set PATH=C:\Program Files\CMake\bin;%PATH%
+
+build:
+  verbosity: detailed
+
+configuration:
+  - Release
+
+environment:
+  artifactName: $(APPVEYOR_PROJECT_NAME)-$(APPVEYOR_REPO_COMMIT)-$(CONFIGURATION)
+  matrix:
+    - env_arch: "x64"
+  
+before_build:
+  - mkdir build
+  - cd build
+  
+build_script:
+  - cmake --build . --config %CONFIGURATION% --target install
+
+after_build:
+  - mkdir %artifactName%
+  - cp %APPVEYOR_BUILD_FOLDER%/%APPVEYOR_REPO_COMMIT%/* %artifactName%
+
+artifacts:
+  - path: build\%artifactName%
+  
