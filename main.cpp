@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <time.h>
 #include <iostream>
 
 #include "pop_calc_shc.h"
