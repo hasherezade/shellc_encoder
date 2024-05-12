@@ -202,8 +202,11 @@ int main(int argc, char *argv[])
 
     if (argc < 2) {
         std::cout << "Args: <shellcode file>\n";
+        if (!payload) {
+            std::cerr << "ERROR: Shellcode not supplied!\n";
+            return 0;
+        }
         std::cout << "Shellcode not supplied, using default\n";
-        //return 0;
     }
     else {
         const char* filename = argv[1];
