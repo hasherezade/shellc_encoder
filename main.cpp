@@ -36,16 +36,6 @@ typedef struct _stub_data
 } stub_data;
 
 
-template <class KEY_TYPE>
-void xor_data(void* data, size_t data_size, KEY_TYPE key)
-{
-    KEY_TYPE* dataq = (KEY_TYPE*)data;
-    size_t sizeq = data_size / sizeof(KEY_TYPE);
-    for (size_t i = 0; i < sizeq; i++) {
-        dataq[i] ^= key;
-    }
-}
-
 bool dump_to_file(BYTE* data, size_t data_size, const char* filename)
 {
     FILE* fp = fopen(filename, "wb");
@@ -91,10 +81,24 @@ bool test_shellc(void* exec, size_t exec_size)
 }
 
 template <class KEY_TYPE>
+bool xor_data(void* data, size_t data_size, KEY_TYPE key)
+{
+    KEY_TYPE* dataq = (KEY_TYPE*)data;
+    size_t sizeq = data_size / sizeof(KEY_TYPE);
+    for (size_t i = 0; i < sizeq; i++) {
+        dataq[i] ^= key;
+        if (!dataq[i]) return false;
+    }
+    return true;
+}
+
+template <class KEY_TYPE>
 bool try_xor_data(void* data, size_t data_len, BYTE* payload, size_t payload_size, KEY_TYPE enc_key)
 {
     ::memcpy(data, payload, payload_size);
-    xor_data(data, data_len, enc_key);
+    if (!xor_data(data, data_len, enc_key)) {
+        return false;
+    }
 #ifdef USE_WCHAR
     size_t data_strlen = wcslen((wchar_t*)data) * sizeof(wchar_t);
 #else
